@@ -1,13 +1,13 @@
 /*
  * QueryServlet.java
  * 1.0
- * 05 March 2017
- * Copyright (c) Ped'ko Volodymyr
+ * 21 04 2017
+ * (c) Pedko Volodymyr
  */
 package com.textfileAPI;
 
-
 import java.io.IOException;
+import java.util.HashMap;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -15,35 +15,74 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * QueryServlet is general servlet which get parameters from user, send them to
- * Searcher and then render the results in the response.
+ * QueryServlet is general servlet, which gets parameters from user, sends them
+ * to Searcher and then renders the results in the response Object.
  *
- * @version 1.0 30 January 2017
+ * @version 1.0 21 04 2017
  *
- * @author Ped'ko Volodymyr
- * 
- * @since 1.8
+ * @author Pedko Volodymyr
  */
-@SuppressWarnings({ "unchecked", "serial" })
 @WebServlet("/textfileAPI")
 public class QueryServlet extends HttpServlet {
 
 	/**
-	 * Parse parameters from html form, check them and send to the Searcher's
-	 * methods. If parameters are empty, set default values. Result put in
-	 * JSONObject, send them to JsonParser for pretty view and render the
-	 * response page.
+	 * If the parameter charLimit of request Object is empty, this will be
+	 * charLimit.
+	 */
+	public static final int DEFAULT_CHAR_LIMIT = 10000;
+	
+	/**
+	 * A default serial version ID to the selected type.
+	 */
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * The type of responds file.
+	 */
+	private static final String CONTENT_TYPE = "application/json";
+
+	/**
+	 * Name of Limit chars parameter of the request.
+	 */
+	private static final String LIMIT_PARAMETER = "limit";
+
+	/**
+	 * Name of String Length parameter of the request.
+	 */
+	private static final String LENGTH_PARAMETER = "length";
+
+	/**
+	 * Name of q (query) parameter of the request.
+	 */
+	private static final String Q_PARAMETER = "q";
+
+	/**
+	 * Name of include Meta Data parameter of the request.
+	 */
+	private static final String INCLUDEMETADATA_PARAMETER = "includeMetaData";
+
+	/**
+	 * String name for meta-date of the respond file.
+	 */
+	private static final String TEXT = "text";
+
+	/**
+	 * This method parses parameters from html form, checks them and sends to
+	 * the Searcher's methods. If parameters are empty, method sets default
+	 * values. Method puts the results in JSONObject, sends them to JsonParser
+	 * for pretty view and renders the response page.
 	 *
 	 * @param request
-	 *            contains parameters from HTML form
+	 *            contains parameters from HTML form.
 	 * @param response
-	 *            render page with JSON content type
+	 *            render page with JSON content type.
 	 * @exception
 	 * 
-	 *                @throws
+	 * 				@throws
 	 *                ServletException a general exception a servlet can throw
 	 *                when it encounters difficulty.
 	 * 
@@ -51,44 +90,33 @@ public class QueryServlet extends HttpServlet {
 	 *             exceptions produced by failed or interrupted I/O operations.
 	 */
 	@Override
-	public void doGet(HttpServletRequest request, HttpServletResponse response)
-	        throws ServletException, IOException {
+	public void doGet(final HttpServletRequest request, HttpServletResponse response) throws ServletException {
 
-			String searchText = "";
-			int charLimit = 10000;
-			int stringLength = 0;
-			boolean metaData = false;
+		Searcher searcher = new Searcher();
+		JSONObject json = new JSONObject();
 
-			JSONObject json = new JSONObject();
+		int charLimit = (!request.getParameter(LIMIT_PARAMETER).isEmpty()) ?
+				Integer.parseInt(request.getParameter(LIMIT_PARAMETER)) : DEFAULT_CHAR_LIMIT;
 
-			String queryText = request.getParameter("q");
-			if (!queryText.isEmpty() && queryText.trim().length() > 0)
-				searchText = queryText;
+		int stringLength = (!request.getParameter(LENGTH_PARAMETER).isEmpty()) ?
+				Integer.parseInt(request.getParameter(LENGTH_PARAMETER)) : charLimit;
 
-			if (!request.getParameter("limit").isEmpty()) {
-				int queryLimit = Integer
-				        .parseInt(request.getParameter("limit"));
-				if (queryLimit != 0)
-					charLimit = queryLimit;
-			}
-			if (!request.getParameter("length").isEmpty()) {
-				int queryLength = Integer
-				        .parseInt(request.getParameter("length"));
-				if (queryLength != 0)
-					stringLength = queryLength;
-			}
+		String searchText = request.getParameter(Q_PARAMETER);
 
-			if (request.getParameter("includeMetaData").equals("true"))
-				metaData = true;
+		boolean includeMetaDate = Boolean.parseBoolean(request.getParameter(INCLUDEMETADATA_PARAMETER));
 
-			json.put("text", Searcher.search(searchText.toLowerCase(),
-			        charLimit, stringLength));
+		if (includeMetaDate) {
+			HashMap<String, JSONArray> map = new HashMap<String, JSONArray>();
+			map.put(TEXT, searcher.search(searchText, charLimit, stringLength));
+			json = new JSONObject(map);
+		}
 
-			if (metaData) {
-				json.put("metaData", Searcher.getMetaData());
-			}
-
-			response.setContentType("application/json");
-			response.getWriter().write(JsonParser.parse(json.toJSONString()));
+		response.setContentType(CONTENT_TYPE);
+		
+		try {
+			response.getWriter().write((new JsonParser()).parse(json.toJSONString()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }

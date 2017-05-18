@@ -1,8 +1,8 @@
 /*
  * JsonParser.java
  * 1.0
- * 05 March 2017
- * Copyright (c) Ped'ko Volodymyr
+ * 21 04 2017
+ * (c) Pedko Volodymyr
  */
 package com.textfileAPI;
 
@@ -15,34 +15,31 @@ import org.json.simple.parser.ParseException;
 /**
  * Parse JSON string with help GSON library and return string as a result.
  *
- * @version 1.0 05 March 2017
+ * @version 21 04 2017
  *
- * @author Ped'ko Volodymyr
- *
- * @since 1.7
+ * @author Pedko Volodymyr
  */
 public class JsonParser {
 
 	/**
+	 * Main parser.
 	 * 
 	 * @param s
-	 *            input string
+	 *            input String.
 	 * 
-	 * @return return string as a result.
+	 * @return String as a result.
 	 * 
 	 * @exception ParseException
 	 *                explains why and where the error occurs in source JSON
-	 *                text
+	 *                text.
 	 * 
 	 */
-	public static String parse(String s) {
+	public String parse(String s) {
 		String result = null;
-
 		try {
 			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 			JSONParser parser = new JSONParser();
-			JSONObject jo = (JSONObject) parser.parse(s);
-			result = gson.toJson(jo);
+			result = gson.toJson((JSONObject) parser.parse(s));
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}

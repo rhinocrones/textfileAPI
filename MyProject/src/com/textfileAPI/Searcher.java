@@ -1,46 +1,54 @@
 /*
  * Searcher.java
  * 1.0
- * 05 March 2017
- * Copyright (c) Ped'ko Volodymyr
+ * 21 04 2017
+ * (c) Pedko Volodymyr
  */
 package com.textfileAPI;
 
 import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.text.SimpleDateFormat;
 
 /**
  * Searcher is general class which contains two methods for text search and
  * extract meta data from file.
  *
- * @version 1.0 30 January 2017
+ * @version 1.0 21 04 2017
  *
- * @author Ped'ko Volodymyr
- * 
- * @since 1.8
+ * @author Pedko Volodymyr
  */
 @SuppressWarnings("unchecked")
 public class Searcher {
-
 	/**
-	 * @return File file from resources.
+	 * Regex, that helps us to divide text into paragraphs.
 	 */
-	public static File getFile() {
-		//Proper path
-		// return new File("C:/Program Files/Apache Software Foundation/Tomcat 9.0/wtpwebapps/textfileAPINew/WEB-INF/classes/testfile.txt");
-		
-		/*return new File(Searcher.class.getResource("/testfile.txt").getPath());*/
-		//Spike :)
-		return new File(Searcher.class.getResource("/testfile.txt").getPath().replaceAll("%20", " "));
-	}
+	private static final String PARAGRAPH_SPLIT_REGEX = "(\\s{4})";
 
 	/**
-	 * Basic method which get parameters from QueryServlet.
+	 * The name of file, that contains data.
+	 */
+	private static final String FILE_NAME = "/testfile.txt";
+
+	/**
+	 * The encoding of given file with data.
+	 */
+	private static final String ENCODING_OF_FILE = "Utf-8";
+
+	/**
+	 * The minimal length of respond Json (The length of {"text":[]} )
+	 */
+	private static final int MIN_JSON_LENGTH = 11;
+
+	/**
+	 * We need this constant, because each data in JSON respond ends with ','
+	 * and in " " (quotes). Thats way, if one needs to calculate the length of
+	 * Json respond, he need to add extra because of Json respond body.
+	 */
+	private static final int ADD_LENGTH = 3;
+
+	/**
+	 * Basic method, which get parameters from QueryServlet.
 	 * 
 	 * @param queryText
 	 *            string which represents text to search in file. If parameter
@@ -50,96 +58,50 @@ public class Searcher {
 	 *            method return.
 	 * @param queryStringLength
 	 *            integer which represents max string length. Method return
-	 *            string which. doesn’t exceed that number.
+	 *            string which. doesnï¿½t exceed that number.
 	 * 
 	 * @exception exceptions
 	 *                produced by failed or interrupted I/O operations.
 	 * 
 	 * @return JSONArray list in which were added strings after search.
 	 */
-	public static JSONArray search(String queryText, int queryCharLimit,
-	        int queryStringLength) {
-
-		JSONArray result = new JSONArray();
-
-		try {
-			BufferedReader reader = new BufferedReader(
-			        new FileReader(getFile()));
-			int totalCharSum = 0;
-
-			if (!queryText.isEmpty()) {
-				while (reader.ready()) {
-					String str = reader.readLine();
-
-					if (queryStringLength > 0
-					        && str.length() > queryStringLength
-					        || str.isEmpty())
-						continue;
-
-					if (str.toLowerCase().contains(queryText)) {
-						totalCharSum += str.length();
-						if (totalCharSum > queryCharLimit)
-							break;
-						result.add(str);
-					}
-				}
-			} else {
-				while (reader.ready()) {
-					String str = reader.readLine();
-
-					if (queryStringLength > 0
-					        && str.length() > queryStringLength
-					        || str.isEmpty())
-						continue;
-
-					totalCharSum += str.length();
-					if (totalCharSum > queryCharLimit)
-						break;
-					result.add(str);
+	public JSONArray search(final String queryText, final int queryCharLimit, final int queryStringLength) {
+		JSONArray jsonArray = new JSONArray();
+		int jsonLength = MIN_JSON_LENGTH;
+		for (String paragraph : getInfoFromFile()) {
+			if (paragraph.contains(queryText)) {
+				paragraph = paragraph.replace("\n", "").replace("\r", "");
+				if (paragraph.length() <= queryStringLength && (jsonLength + paragraph.length() <= queryCharLimit)) {
+					jsonArray.add(paragraph);
+					jsonLength += paragraph.length() + ADD_LENGTH;
+				} else if (jsonLength + queryStringLength <= queryCharLimit) {
+					jsonArray.add(paragraph.substring(0, queryStringLength));
+					jsonLength += queryStringLength + ADD_LENGTH;
 				}
 			}
-			reader.close();
-
-		} catch (IOException e) {
-			e.printStackTrace();
+			if (jsonArray.toJSONString().length() >= queryCharLimit) {
+				return jsonArray;
+			}
 		}
-		return result;
+		return jsonArray;
 	}
 
 	/**
-	 * Method extracts File Name, File Size, Creation Data.
+	 * Returns information from the given file with data in String[].
 	 * 
-	 * @exception exceptions
-	 *                produced by failed or interrupted I/O operations.
-	 * 
-	 * @return JSONObject in which were added elements of meta data from file.
+	 * @return String[] Information from the file in String[].
 	 */
-	protected static JSONObject getMetaData() {
-
-		JSONObject result = new JSONObject();
-
-		Path file = getFile().toPath();
-		String fileName = file.getFileName().toString();
-		BasicFileAttributes attributes;
-		SimpleDateFormat date = new SimpleDateFormat(
-		        "MMMM d, yyyy 'at' HH:mm aaa");
-		int kilobytes;
-
-		try {
-			attributes = Files.readAttributes(file, BasicFileAttributes.class);
-			if (attributes.size() < 1000)
-				kilobytes = 1;
-			else
-				kilobytes = (int) (attributes.size() / 1024);
-
-			result.put("fileName", fileName);
-			result.put("fileSize", kilobytes + "KB");
-			result.put("metaData",
-			        date.format(attributes.creationTime().toMillis()));
-
+	public String[] getInfoFromFile() {
+		String[] paragraphs = null;
+		try (FileInputStream fis = new FileInputStream(
+				new File(Searcher.class.getResource(FILE_NAME).getPath().replaceAll("%20", " ")));) {
+			byte[] content = new byte[fis.available()];
+			fis.read(content);
+			fis.close();
+			paragraphs = new String(content, ENCODING_OF_FILE).split(PARAGRAPH_SPLIT_REGEX);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		return result;
+		return paragraphs;
 	}
 }
